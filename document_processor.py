@@ -67,21 +67,34 @@ class DocumentProcessor:
     
     def process_documents(self) -> List[Dict[str, str]]:
         """Procesa todos los documentos PDF en la carpeta ref"""
+        print(f"📁 Procesando documentos en carpeta: {self.ref_folder}")
         documents = []
-        
+
         if not os.path.exists(self.ref_folder):
+            print(f"❌ Carpeta {self.ref_folder} no existe")
             return documents
-        
-        for filename in os.listdir(self.ref_folder):
-            if filename.lower().endswith('.pdf'):
-                pdf_path = os.path.join(self.ref_folder, filename)
-                print(f"Procesando: {filename}")
-                
+
+        all_files = os.listdir(self.ref_folder)
+        pdf_files = [f for f in all_files if f.lower().endswith('.pdf')]
+
+        print(f"📁 Archivos encontrados: {all_files}")
+        print(f"📄 PDFs encontrados: {pdf_files}")
+
+        for filename in pdf_files:
+            pdf_path = os.path.join(self.ref_folder, filename)
+            print(f"🔄 Procesando: {filename}")
+
+            try:
                 text = self.extract_text_from_pdf(pdf_path)
+                print(f"📝 Texto extraído de {filename}: {len(text)} caracteres")
+
                 if text:
                     cleaned_text = self.clean_text(text)
+                    print(f"🧹 Texto limpiado: {len(cleaned_text)} caracteres")
+
                     chunks = self.chunk_text(cleaned_text)
-                    
+                    print(f"✂️ Fragmentos creados para {filename}: {len(chunks)}")
+
                     for i, chunk in enumerate(chunks):
                         documents.append({
                             'filename': filename,
@@ -89,6 +102,17 @@ class DocumentProcessor:
                             'text': chunk,
                             'source': f"{filename} (fragmento {i+1})"
                         })
-        
-        print(f"Total de fragmentos procesados: {len(documents)}")
+
+                        # Mostrar muestra del primer fragmento
+                        if i == 0:
+                            print(f"📄 Primer fragmento de {filename}: {chunk[:100]}...")
+                else:
+                    print(f"⚠️ No se pudo extraer texto de {filename}")
+
+            except Exception as e:
+                print(f"❌ Error procesando {filename}: {e}")
+                import traceback
+                traceback.print_exc()
+
+        print(f"✅ Total de fragmentos procesados: {len(documents)}")
         return documents

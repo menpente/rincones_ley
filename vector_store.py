@@ -44,27 +44,42 @@ class VectorStore:
     
     def search(self, query: str, k: int = 5) -> List[Dict]:
         """Busca documentos similares usando TF-IDF y cosine similarity"""
+        print(f"🔍 Buscando en vector store: '{query}'")
+
         if self.tfidf_matrix is None or not self.documents:
+            print("❌ Vector store no inicializado o sin documentos")
             return []
-        
+
+        print(f"📊 Matriz TF-IDF shape: {self.tfidf_matrix.shape}")
+        print(f"📚 Total documentos: {len(self.documents)}")
+
         # Preprocesar y vectorizar la consulta
         query_processed = self._preprocess_text(query)
+        print(f"🔧 Query procesada: '{query_processed}'")
+
         query_vector = self.vectorizer.transform([query_processed])
-        
+        print(f"🔢 Query vector shape: {query_vector.shape}")
+
         # Calcular similitudes coseno
         similarities = cosine_similarity(query_vector, self.tfidf_matrix)[0]
-        
+        print(f"📈 Similitudes calculadas: min={similarities.min():.3f}, max={similarities.max():.3f}")
+
         # Obtener los k más similares
         top_indices = np.argsort(similarities)[::-1][:k]
-        
+        print(f"🎯 Top {k} índices: {top_indices}")
+
         results = []
         for i, idx in enumerate(top_indices):
-            if similarities[idx] > 0:  # Solo incluir resultados con similitud > 0
+            score = similarities[idx]
+            print(f"📄 Resultado {i+1}: idx={idx}, score={score:.3f}")
+            if score > 0:  # Solo incluir resultados con similitud > 0
                 result = self.documents[idx].copy()
-                result['similarity_score'] = similarities[idx]
+                result['similarity_score'] = score
                 result['rank'] = i + 1
                 results.append(result)
-        
+                print(f"✅ Agregado: {result['source']}")
+
+        print(f"📝 Total resultados retornados: {len(results)}")
         return results
     
     def save_index(self, filepath: str = "vector_index"):

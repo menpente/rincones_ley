@@ -12,22 +12,43 @@ class RAGSystem:
     def initialize(self):
         """Inicializa el sistema RAG cargando o creando el índice"""
         try:
+            print("🔄 Iniciando sistema RAG...")
+
+            # Verificar que existe la carpeta de documentos
+            import os
+            ref_folder = "ref"
+            if not os.path.exists(ref_folder):
+                print(f"❌ Carpeta {ref_folder} no existe")
+                raise Exception(f"Carpeta {ref_folder} no encontrada")
+
+            pdf_files = [f for f in os.listdir(ref_folder) if f.lower().endswith('.pdf')]
+            print(f"📄 PDFs encontrados: {pdf_files}")
+
             # Intentar cargar índice existente
             if not self.vector_store.load_index():
-                print("Creando nuevo índice...")
+                print("🔨 Creando nuevo índice...")
                 documents = self.doc_processor.process_documents()
-                print(f"Documentos procesados: {len(documents)}")
+                print(f"📚 Documentos procesados: {len(documents)}")
+
                 if documents:
+                    # Mostrar una muestra del primer documento
+                    if len(documents) > 0:
+                        print(f"📝 Muestra del primer documento: {documents[0]['text'][:100]}...")
+
                     self.vector_store.build_index(documents)
                     self.vector_store.save_index()
-                    print("Índice creado y guardado exitosamente")
+                    print("✅ Índice creado y guardado exitosamente")
                 else:
                     print("❌ No se encontraron documentos para procesar")
                     raise Exception("No se pudieron procesar los documentos PDF. Verifique que PyMuPDF esté instalado.")
             else:
                 print("✅ Índice cargado correctamente")
+                print(f"📊 Documentos en índice: {len(self.vector_store.documents)}")
+
         except Exception as e:
-            print(f"❌ Error en inicialización: {e}")
+            print(f"❌ Error en inicialización RAG: {e}")
+            import traceback
+            traceback.print_exc()
             raise e
     
     def retrieve_context(self, query: str, k: int = 3) -> List[Dict]:
@@ -62,15 +83,35 @@ RESPUESTA:"""
     def query(self, question: str, model: str = "llama-3.1-70b-versatile") -> Dict:
         """Procesa una consulta usando RAG"""
         try:
+            print(f"🔍 Procesando consulta: {question}")
+
+            # Verificar que el sistema esté inicializado
+            if not self.vector_store.documents:
+                print("❌ No hay documentos cargados en el vector store")
+                return {
+                    "answer": "Sistema no inicializado correctamente. No hay documentos disponibles para consulta.",
+                    "sources": [],
+                    "context_used": False
+                }
+
+            print(f"📊 Documentos disponibles en vector store: {len(self.vector_store.documents)}")
+
             # Recuperar contexto relevante
             context_docs = self.retrieve_context(question)
-            
+            print(f"🎯 Documentos relevantes encontrados: {len(context_docs)}")
+
             if not context_docs:
+                print("❌ No se encontraron documentos relevantes")
                 return {
                     "answer": "No se encontró información relevante en los documentos disponibles.",
                     "sources": [],
                     "context_used": False
                 }
+
+            # Mostrar información de los documentos encontrados
+            for i, doc in enumerate(context_docs):
+                score = doc.get('similarity_score', 0)
+                print(f"📄 Doc {i+1}: {doc['source']} (score: {score:.3f})")
             
             # Generar prompt con contexto
             prompt = self.generate_prompt(question, context_docs)
