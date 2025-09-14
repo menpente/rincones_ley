@@ -53,13 +53,21 @@ def setup_sidebar():
     """Configura la barra lateral"""
     with st.sidebar:
         st.header("⚖️ Configuración")
-        
-        # API Key input
-        groq_api_key = st.text_input(
-            "Clave API de Groq:",
-            type="password",
-            help="Ingresa tu clave API de Groq para usar el servicio"
-        )
+
+        # Check for environment variable first
+        env_api_key = os.environ.get("GROQ_API_KEY")
+
+        if env_api_key:
+            # Use environment variable and hide input
+            groq_api_key = env_api_key
+            st.success("✅ API Key configurada desde variables de entorno")
+        else:
+            # API Key input for local development
+            groq_api_key = st.text_input(
+                "Clave API de Groq:",
+                type="password",
+                help="Ingresa tu clave API de Groq para usar el servicio"
+            )
         
         if groq_api_key and (not st.session_state.rag_system or 
                            st.session_state.get('current_api_key') != groq_api_key):
