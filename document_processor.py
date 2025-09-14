@@ -1,4 +1,9 @@
-import fitz  # PyMuPDF
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    print("❌ PyMuPDF no está instalado. Instálelo con: pip install PyMuPDF")
+    fitz = None
+
 import os
 from typing import List, Dict
 import re
@@ -9,6 +14,9 @@ class DocumentProcessor:
     
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extrae texto de un archivo PDF"""
+        if fitz is None:
+            raise ImportError("PyMuPDF no está disponible. Instálelo para procesar PDFs.")
+
         try:
             doc = fitz.open(pdf_path)
             text = ""

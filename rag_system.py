@@ -11,15 +11,24 @@ class RAGSystem:
         
     def initialize(self):
         """Inicializa el sistema RAG cargando o creando el índice"""
-        # Intentar cargar índice existente
-        if not self.vector_store.load_index():
-            print("Creando nuevo índice...")
-            documents = self.doc_processor.process_documents()
-            if documents:
-                self.vector_store.build_index(documents)
-                self.vector_store.save_index()
+        try:
+            # Intentar cargar índice existente
+            if not self.vector_store.load_index():
+                print("Creando nuevo índice...")
+                documents = self.doc_processor.process_documents()
+                print(f"Documentos procesados: {len(documents)}")
+                if documents:
+                    self.vector_store.build_index(documents)
+                    self.vector_store.save_index()
+                    print("Índice creado y guardado exitosamente")
+                else:
+                    print("❌ No se encontraron documentos para procesar")
+                    raise Exception("No se pudieron procesar los documentos PDF. Verifique que PyMuPDF esté instalado.")
             else:
-                print("No se encontraron documentos para procesar")
+                print("✅ Índice cargado correctamente")
+        except Exception as e:
+            print(f"❌ Error en inicialización: {e}")
+            raise e
     
     def retrieve_context(self, query: str, k: int = 3) -> List[Dict]:
         """Recupera contexto relevante para la consulta"""
