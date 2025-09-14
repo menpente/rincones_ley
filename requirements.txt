@@ -1,0 +1,6 @@
+streamlit
+groq
+scikit-learn
+PyMuPDF
+numpy
+pandas
