@@ -114,26 +114,39 @@ RESPUESTA:"""
                 print(f"📄 Doc {i+1}: {doc['source']} (score: {score:.3f})")
             
             # Generar prompt con contexto
+            print("🤖 Generando prompt con contexto...")
             prompt = self.generate_prompt(question, context_docs)
-            
+            print(f"📝 Longitud del prompt: {len(prompt)} caracteres")
+
             # Consultar al modelo
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Eres un asistente jurídico especializado en derecho español."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=0.3,
-                max_tokens=1500
-            )
-            
-            answer = response.choices[0].message.content
+            print(f"🌐 Realizando llamada a Groq API con modelo: {model}")
+            try:
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "Eres un asistente jurídico especializado en derecho español."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=0.3,
+                    max_tokens=1500
+                )
+                print("✅ Respuesta recibida de Groq API")
+
+                answer = response.choices[0].message.content
+                print(f"📄 Longitud de la respuesta: {len(answer)} caracteres")
+
+            except Exception as api_error:
+                print(f"❌ Error en llamada a Groq API: {api_error}")
+                print(f"❌ Tipo de error: {type(api_error).__name__}")
+                import traceback
+                traceback.print_exc()
+                raise api_error
             
             return {
                 "answer": answer,
