@@ -2,12 +2,14 @@ from groq import Groq
 from typing import List, Dict
 from vector_store import VectorStore
 from document_processor import DocumentProcessor
+import os
 
 class RAGSystem:
     def __init__(self, groq_api_key: str):
         self.client = Groq(api_key=groq_api_key)
         self.vector_store = VectorStore()
         self.doc_processor = DocumentProcessor()
+        self.system_prompt = self._load_system_prompt()
         
     def initialize(self):
         """Inicializa el sistema RAG cargando o creando el índice"""
@@ -15,7 +17,6 @@ class RAGSystem:
             print("🔄 Iniciando sistema RAG...")
 
             # Verificar que existe la carpeta de documentos
-            import os
             ref_folder = "ref"
             if not os.path.exists(ref_folder):
                 print(f"❌ Carpeta {ref_folder} no existe")
@@ -50,7 +51,32 @@ class RAGSystem:
             import traceback
             traceback.print_exc()
             raise e
-    
+
+    def _load_system_prompt(self) -> str:
+        """Carga el prompt del sistema desde archivo markdown"""
+        try:
+            prompt_file = "system_prompt.md"
+            if os.path.exists(prompt_file):
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    # Extract only the main content, removing markdown headers
+                    lines = content.split('\n')
+                    # Skip title and take content after first paragraph
+                    content_lines = []
+                    skip_headers = True
+                    for line in lines:
+                        if line.strip() and not line.startswith('#') and skip_headers:
+                            skip_headers = False
+                        if not skip_headers and not line.startswith('#'):
+                            content_lines.append(line)
+                    return '\n'.join(content_lines).strip()
+            else:
+                print(f"⚠️ Archivo {prompt_file} no encontrado, usando prompt por defecto")
+                return "Eres un asistente jurídico especializado en derecho español. Responde de manera precisa y profesional basándote únicamente en la información proporcionada."
+        except Exception as e:
+            print(f"❌ Error cargando prompt del sistema: {e}")
+            return "Eres un asistente jurídico especializado en derecho español. Responde de manera precisa y profesional basándote únicamente en la información proporcionada."
+
     def retrieve_context(self, query: str, k: int = 3) -> List[Dict]:
         """Recupera contexto relevante para la consulta"""
         return self.vector_store.search(query, k=k)
@@ -61,26 +87,17 @@ class RAGSystem:
             f"[Fuente: {doc['source']}]\n{doc['text']}"
             for doc in context_docs
         ])
-        
-        prompt = f"""Eres un asistente jurídico especializado en derecho español. Responde de manera precisa y profesional basándote únicamente en la información proporcionada.
 
-CONTEXTO LEGAL:
+        prompt = f"""CONTEXTO LEGAL:
 {context_text}
 
 PREGUNTA: {query}
 
-INSTRUCCIONES:
-- Responde basándote únicamente en el contexto proporcionado
-- Si la información no está en el contexto, indícalo claramente
-- Cita las fuentes relevantes en tu respuesta
-- Usa terminología jurídica española apropiada
-- Estructura tu respuesta de manera clara y profesional
-
 RESPUESTA:"""
-        
+
         return prompt
     
-    def query(self, question: str, model: str = "llama-3.1-70b-versatile") -> Dict:
+    def query(self, question: str, model: str = "llama-3.3-70b-versatile") -> Dict:
         """Procesa una consulta usando RAG"""
         try:
             print(f"🔍 Procesando consulta: {question}")
@@ -126,7 +143,7 @@ RESPUESTA:"""
                     messages=[
                         {
                             "role": "system",
-                            "content": "Eres un asistente jurídico especializado en derecho español."
+                            "content": self.system_prompt
                         },
                         {
                             "role": "user",
@@ -168,4 +185,4 @@ RESPUESTA:"""
             models = self.client.models.list()
             return [model.id for model in models.data if 'llama' in model.id.lower()]
         except:
-            return ["llama-3.1-70b-versatile", "llama-3.1-8b-instant"]
+            return ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
