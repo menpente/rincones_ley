@@ -169,4 +169,34 @@ The recent commits with comprehensive logging were instrumental in identifying t
    - Test end-to-end query functionality
    - Confirm both backend and frontend issues are resolved
 
-**Current Status:** Backend fix ready, deployment and UI issues pending
+---
+
+## Font Visibility Issue - RESOLVED - September 21, 2025
+
+### Issue: UI Text Not Visible
+**Problem:** Interface text was invisible (white text on white background)
+**Root Cause:** Missing explicit color definitions in CSS classes
+
+**Solution Implemented:**
+1. **Added explicit color properties** to all CSS classes:
+   - `.query-box`: Added `color: #1f2937`
+   - `.source-box`: Added `color: #92400e`
+   - `.answer-box`: Added `color: #1f2937`
+2. **Added global text color rules** for Streamlit compatibility:
+   ```css
+   .stMarkdown, .stText {
+       color: #1f2937 !important;
+   }
+   div[data-testid="stMarkdownContainer"] p {
+       color: #1f2937 !important;
+   }
+   ```
+
+**Files Modified:**
+- `app.py` - Enhanced CSS with explicit color definitions
+
+**Status:** ✅ RESOLVED
+
+---
+
+**Current Status:** Both backend model fix and UI font fix completed and committed locally. Git push experiencing connectivity issues but fixes are ready for deployment.
