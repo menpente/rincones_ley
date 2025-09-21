@@ -21,12 +21,14 @@ st.markdown("""
     }
     .query-box {
         background-color: #f8fafc;
+        color: #1f2937;
         padding: 1rem;
         border-radius: 10px;
         border-left: 5px solid #3b82f6;
     }
     .source-box {
         background-color: #fef3c7;
+        color: #92400e;
         padding: 0.5rem;
         border-radius: 5px;
         margin: 0.5rem 0;
@@ -34,10 +36,19 @@ st.markdown("""
     }
     .answer-box {
         background-color: #ffffff;
+        color: #1f2937;
         padding: 1.5rem;
         border-radius: 10px;
         border: 1px solid #e5e7eb;
         margin: 1rem 0;
+    }
+    /* Ensure all text elements have proper contrast */
+    .stMarkdown, .stText {
+        color: #1f2937 !important;
+    }
+    /* Fix any potential dark mode conflicts */
+    div[data-testid="stMarkdownContainer"] p {
+        color: #1f2937 !important;
     }
 </style>
 """, unsafe_allow_html=True)
