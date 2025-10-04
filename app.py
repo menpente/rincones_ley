@@ -42,6 +42,28 @@ st.markdown("""
         border: 1px solid #e5e7eb;
         margin: 1rem 0;
     }
+    .answer-preview {
+        background-color: #ffffff;
+        color: #1f2937;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        margin: 1rem 0;
+        line-height: 1.6;
+    }
+    .read-more-btn {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+    .read-more-btn:hover {
+        background-color: #2563eb;
+    }
     /* Ensure all text elements have proper contrast */
     .stMarkdown, .stText {
         color: #1f2937 !important;
@@ -59,6 +81,22 @@ def initialize_session_state():
         st.session_state.rag_system = None
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
+
+def create_answer_preview(answer_text: str, max_length: int = 180) -> tuple[str, bool]:
+    """
+    Crea un preview del texto de respuesta.
+    Retorna (preview_text, is_truncated)
+    """
+    if len(answer_text) <= max_length:
+        return answer_text, False
+
+    # Buscar el último espacio antes del límite para no cortar palabras
+    truncate_pos = answer_text.rfind(' ', 0, max_length)
+    if truncate_pos == -1:  # No se encontró espacio, cortar en el límite
+        truncate_pos = max_length
+
+    preview = answer_text[:truncate_pos].rstrip()
+    return f"{preview}...", True
 
 def setup_sidebar():
     """Configura la barra lateral"""
@@ -177,40 +215,54 @@ def process_query(query: str):
             st.error(f"Error procesando la consulta: {str(e)}")
 
 def display_chat_history():
-    """Muestra el historial de consultas y respuestas"""
+    """Muestra el historial de consultas y respuestas con progressive disclosure"""
     if not st.session_state.chat_history:
         return
-    
+
     st.subheader("💬 Historial de Consultas")
-    
+
     # Mostrar las consultas más recientes primero
     for i, chat in enumerate(reversed(st.session_state.chat_history)):
-        with st.expander(f"Consulta {len(st.session_state.chat_history) - i}: {chat['query'][:60]}..."):
-            
-            # Mostrar la pregunta
-            st.markdown(f'<div class="query-box"><strong>Pregunta:</strong> {chat["query"]}</div>', 
-                       unsafe_allow_html=True)
-            
-            result = chat["result"]
-            
-            # Mostrar fuentes si están disponibles
-            if result.get("sources"):
-                st.markdown("**📚 Fuentes consultadas:**")
-                for source in result["sources"]:
-                    st.markdown(f'<div class="source-box">• {source}</div>', 
-                               unsafe_allow_html=True)
-            
-            # Mostrar la respuesta
-            st.markdown(f'<div class="answer-box">{result["answer"]}</div>', 
-                       unsafe_allow_html=True)
-            
-            # Mostrar contexto usado (opcional, para debug)
-            if st.checkbox(f"Mostrar contexto usado - Consulta {len(st.session_state.chat_history) - i}", key=f"context_{i}"):
-                if result.get("context_docs"):
-                    st.subheader("🔍 Fragmentos de texto utilizados:")
-                    for j, doc in enumerate(result["context_docs"]):
-                        with st.expander(f"Fragmento {j+1} - {doc['source']}"):
-                            st.text(doc["text"][:500] + "..." if len(doc["text"]) > 500 else doc["text"])
+        chat_index = len(st.session_state.chat_history) - i
+
+        # Contenedor principal para cada consulta
+        st.markdown("---")
+
+        # Mostrar la pregunta
+        st.markdown(f'<div class="query-box"><strong>Consulta {chat_index}:</strong> {chat["query"]}</div>',
+                   unsafe_allow_html=True)
+
+        result = chat["result"]
+        answer_text = result["answer"]
+
+        # Crear preview de la respuesta
+        preview_text, is_truncated = create_answer_preview(answer_text)
+
+        # Mostrar fuentes si están disponibles
+        if result.get("sources"):
+            st.markdown("**📚 Fuentes consultadas:**")
+            for source in result["sources"]:
+                st.markdown(f'<div class="source-box">• {source}</div>',
+                           unsafe_allow_html=True)
+
+        # Mostrar preview de la respuesta
+        st.markdown(f'<div class="answer-preview">{preview_text}</div>',
+                   unsafe_allow_html=True)
+
+        # Si la respuesta está truncada, mostrar botón "Leer más"
+        if is_truncated:
+            if st.button(f"📖 Leer respuesta completa", key=f"expand_{chat_index}"):
+                # Mostrar respuesta completa
+                st.markdown(f'<div class="answer-box">{answer_text}</div>',
+                           unsafe_allow_html=True)
+
+        # Mostrar contexto usado (opcional, para debug)
+        if st.checkbox(f"🔍 Mostrar contexto utilizado", key=f"context_{i}"):
+            if result.get("context_docs"):
+                st.subheader("📄 Fragmentos de texto utilizados:")
+                for j, doc in enumerate(result["context_docs"]):
+                    with st.expander(f"Fragmento {j+1} - {doc['source']}"):
+                        st.text(doc["text"][:500] + "..." if len(doc["text"]) > 500 else doc["text"])
 
 if __name__ == "__main__":
     main()
