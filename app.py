@@ -103,13 +103,14 @@ def setup_sidebar():
     with st.sidebar:
         st.header("⚖️ Configuración")
 
-        # Check for environment variable first
-        env_api_key = os.environ.get("GROQ_API_KEY")
+        # Check for environment variables first
+        env_groq_key = os.environ.get("GROQ_API_KEY")
+        env_anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
 
-        if env_api_key:
+        if env_groq_key:
             # Use environment variable and hide input
-            groq_api_key = env_api_key
-            st.success("✅ API Key configurada desde variables de entorno")
+            groq_api_key = env_groq_key
+            st.success("✅ Groq API Key configurada desde variables de entorno")
         else:
             # API Key input for local development
             groq_api_key = st.text_input(
@@ -117,15 +118,35 @@ def setup_sidebar():
                 type="password",
                 help="Ingresa tu clave API de Groq para usar el servicio"
             )
+
+        # Anthropic API Key for contextual retrieval
+        if env_anthropic_key:
+            anthropic_api_key = env_anthropic_key
+            st.success("✅ Anthropic API Key configurada (recuperación contextual habilitada)")
+        else:
+            anthropic_api_key = st.text_input(
+                "Clave API de Anthropic (opcional):",
+                type="password",
+                help="Para habilitar recuperación contextual mejorada"
+            )
         
-        if groq_api_key and (not st.session_state.rag_system or 
-                           st.session_state.get('current_api_key') != groq_api_key):
+        # Check if we need to reinitialize due to API key changes
+        current_keys = (groq_api_key, anthropic_api_key)
+        stored_keys = st.session_state.get('current_api_keys', (None, None))
+
+        if groq_api_key and (not st.session_state.rag_system or current_keys != stored_keys):
             with st.spinner("Inicializando sistema RAG..."):
                 try:
-                    st.session_state.rag_system = RAGSystem(groq_api_key)
+                    st.session_state.rag_system = RAGSystem(groq_api_key, anthropic_api_key)
                     st.session_state.rag_system.initialize()
-                    st.session_state.current_api_key = groq_api_key
-                    st.success("Sistema inicializado correctamente")
+                    st.session_state.current_api_keys = current_keys
+
+                    if anthropic_api_key:
+                        st.success("✅ Sistema inicializado con recuperación contextual")
+                    else:
+                        st.success("✅ Sistema inicializado (modo tradicional)")
+                        st.info("💡 Agrega tu API key de Anthropic para habilitar recuperación contextual")
+
                 except Exception as e:
                     st.error(f"Error inicializando: {str(e)}")
                     st.session_state.rag_system = None

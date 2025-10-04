@@ -65,14 +65,15 @@ class DocumentProcessor:
             
         return chunks
     
-    def process_documents(self) -> List[Dict[str, str]]:
+    def process_documents(self) -> tuple[List[Dict[str, str]], Dict[str, str]]:
         """Procesa todos los documentos PDF en la carpeta ref"""
         print(f"📁 Procesando documentos en carpeta: {self.ref_folder}")
         documents = []
+        whole_documents = {}
 
         if not os.path.exists(self.ref_folder):
             print(f"❌ Carpeta {self.ref_folder} no existe")
-            return documents
+            return documents, whole_documents
 
         all_files = os.listdir(self.ref_folder)
         pdf_files = [f for f in all_files if f.lower().endswith('.pdf')]
@@ -91,6 +92,9 @@ class DocumentProcessor:
                 if text:
                     cleaned_text = self.clean_text(text)
                     print(f"🧹 Texto limpiado: {len(cleaned_text)} caracteres")
+
+                    # Guardar documento completo para contexto
+                    whole_documents[filename] = cleaned_text
 
                     chunks = self.chunk_text(cleaned_text)
                     print(f"✂️ Fragmentos creados para {filename}: {len(chunks)}")
@@ -115,4 +119,5 @@ class DocumentProcessor:
                 traceback.print_exc()
 
         print(f"✅ Total de fragmentos procesados: {len(documents)}")
-        return documents
+        print(f"📚 Documentos completos guardados: {len(whole_documents)}")
+        return documents, whole_documents

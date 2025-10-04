@@ -1,15 +1,18 @@
 from groq import Groq
-from typing import List, Dict
+from typing import List, Dict, Optional
 from vector_store import VectorStore
 from document_processor import DocumentProcessor
+from contextual_retrieval import ContextualRetrieval
 import os
 
 class RAGSystem:
-    def __init__(self, groq_api_key: str):
+    def __init__(self, groq_api_key: str, anthropic_api_key: Optional[str] = None):
         self.client = Groq(api_key=groq_api_key)
         self.vector_store = VectorStore()
         self.doc_processor = DocumentProcessor()
+        self.contextual_retrieval = ContextualRetrieval(anthropic_api_key) if anthropic_api_key else None
         self.system_prompt = self._load_system_prompt()
+        self.use_contextual_retrieval = anthropic_api_key is not None
         
     def initialize(self):
         """Inicializa el sistema RAG cargando o creando el índice"""
@@ -26,9 +29,15 @@ class RAGSystem:
             print(f"📄 PDFs encontrados: {pdf_files}")
 
             # Intentar cargar índice existente
-            if not self.vector_store.load_index():
+            traditional_loaded = self.vector_store.load_index()
+            contextual_loaded = False
+
+            if self.use_contextual_retrieval:
+                contextual_loaded = self.contextual_retrieval.load_contextual_index()
+
+            if not traditional_loaded or (self.use_contextual_retrieval and not contextual_loaded):
                 print("🔨 Creando nuevo índice...")
-                documents = self.doc_processor.process_documents()
+                documents, whole_documents = self.doc_processor.process_documents()
                 print(f"📚 Documentos procesados: {len(documents)}")
 
                 if documents:
@@ -36,15 +45,30 @@ class RAGSystem:
                     if len(documents) > 0:
                         print(f"📝 Muestra del primer documento: {documents[0]['text'][:100]}...")
 
+                    # Construir índice tradicional
                     self.vector_store.build_index(documents)
                     self.vector_store.save_index()
-                    print("✅ Índice creado y guardado exitosamente")
+                    print("✅ Índice tradicional creado y guardado")
+
+                    # Construir índice contextual si está habilitado
+                    if self.use_contextual_retrieval:
+                        print("🤖 Generando índice contextual...")
+                        contextual_chunks = self.contextual_retrieval.create_contextual_chunks(
+                            documents, whole_documents
+                        )
+                        self.contextual_retrieval.build_contextual_index(contextual_chunks)
+                        self.contextual_retrieval.save_contextual_index()
+                        print("✅ Índice contextual creado y guardado")
+
                 else:
                     print("❌ No se encontraron documentos para procesar")
                     raise Exception("No se pudieron procesar los documentos PDF. Verifique que PyMuPDF esté instalado.")
             else:
-                print("✅ Índice cargado correctamente")
+                print("✅ Índice tradicional cargado correctamente")
                 print(f"📊 Documentos en índice: {len(self.vector_store.documents)}")
+                if self.use_contextual_retrieval and contextual_loaded:
+                    print("✅ Índice contextual cargado correctamente")
+                    print(f"🤖 Documentos contextuales: {len(self.contextual_retrieval.contextual_documents)}")
 
         except Exception as e:
             print(f"❌ Error en inicialización RAG: {e}")
@@ -78,8 +102,22 @@ class RAGSystem:
             return "Eres un asistente jurídico especializado en derecho español. Responde de manera precisa y profesional basándote únicamente en la información proporcionada."
 
     def retrieve_context(self, query: str, k: int = 3) -> List[Dict]:
-        """Recupera contexto relevante para la consulta"""
-        return self.vector_store.search(query, k=k)
+        """Recupera contexto relevante para la consulta usando búsqueda híbrida si está disponible"""
+        if self.use_contextual_retrieval and self.contextual_retrieval.contextual_documents:
+            # Obtener resultados tradicionales
+            traditional_results = self.vector_store.search(query, k=k*2)
+
+            # Combinar con búsqueda contextual
+            hybrid_results = self.contextual_retrieval.hybrid_search(
+                query, traditional_results, k=k, alpha=0.7
+            )
+
+            print(f"🔄 Usando búsqueda híbrida contextual (tradicional + contextual)")
+            return hybrid_results
+        else:
+            # Fallback a búsqueda tradicional
+            print(f"🔍 Usando búsqueda tradicional")
+            return self.vector_store.search(query, k=k)
     
     def generate_prompt(self, query: str, context_docs: List[Dict]) -> str:
         """Genera el prompt para el modelo con contexto recuperado"""
